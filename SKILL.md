@@ -61,8 +61,8 @@ agent_created: true
 
 ## 三、工作流
 
-取谱（第一节）→ 转写 DSL 到 `<歌名>.txt` → 渲染（第五节）→
-交付（存到用户工作目录并展示，WorkBuddy 用 present_files）+ 附一句范围说明。
+取谱（第一节）→ 转写 DSL 到当前目录的 `<歌名>.txt` → 渲染（第五节）→
+交付（和输出图放在同一目录并展示，WorkBuddy 用 present_files）+ 附一句范围说明。
 
 用户说"某句不对 / 某段漏了"：**只改 DSL 对应行重跑**，不要重写整份谱。
 
@@ -100,6 +100,7 @@ agent_created: true
 脚本按**输出文件扩展名**自动选路径，两条路径版式一致：
 
 ```bash
+# 解释器：Linux / macOS 上通常叫 python3，Windows 上是 python，用哪个能跑就用哪个
 python <skill_dir>/scripts/render_score.py <输入.txt> -o <输出.png>    # 需要 Pillow
 python <skill_dir>/scripts/render_score.py <输入.txt> -o <输出.html>   # 零依赖
 ```
