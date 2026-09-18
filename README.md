@@ -1,4 +1,4 @@
-# delta-harmonica-score
+# 三角洲口琴谱生成器
 
 把歌曲简谱转成《三角洲行动》「守夜人口琴」的键盘琴谱，并渲染成图片的 WorkBuddy Skill。
 
