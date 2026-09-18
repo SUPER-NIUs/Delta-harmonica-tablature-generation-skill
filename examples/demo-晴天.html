@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>晴天</title>
+<style>
+  :root{
+    --down:#93D2B8; --up:#F2A0A0; --sharp:#F5CE80;
+    --ink:#111111; --soft:#9A9A9A; --line:#DCDCDC;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:#fff;color:var(--ink);
+    font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",
+                "Noto Sans CJK SC","Source Han Sans SC","WenQuanYi Micro Hei",sans-serif;
+    padding:26px 18px 44px;-webkit-text-size-adjust:100%;
+  }
+  .sheet{max-width:1180px;margin:0 auto}
+  .title{
+    margin:0 0 16px;text-align:center;font-weight:700;letter-spacing:.16em;
+    font-family:"Songti SC","SimSun","Noto Serif CJK SC","Source Han Serif SC",serif;
+    font-size:45px;
+  }
+  .rule{height:1px;background:var(--line);margin:0 0 28px}
+  .wrap{display:flex;gap:36px;align-items:flex-start}
+  .rows{flex:1 1 auto;min-width:0}
+  .row{
+    display:flex;flex-wrap:wrap;align-content:flex-start;
+    column-gap:7px;row-gap:53px;
+    margin:0 0 29px;
+  }
+  .box{
+    position:relative;flex:0 0 auto;
+    width:52px;height:52px;
+    display:inline-flex;align-items:center;justify-content:center;gap:3px;
+    border:1px solid #1F1F1F;border-radius:2px;background:#fff;
+  }
+  .box.down{background:var(--down)}
+  .box.up{background:var(--up)}
+  .box.sharp{background:var(--sharp)}
+  .box.rest{background:#fff;border-color:var(--soft);border-style:dashed}
+  .key{
+    font-family:Georgia,"Times New Roman","Songti SC",serif;
+    font-size:27px;font-weight:700;line-height:1;
+  }
+  .mark{display:inline-block;background:var(--ink);flex:0 0 auto}
+  .mark.dash{width:16px;height:3px;border-radius:1px}
+  .mark.dot{width:8px;height:8px;border-radius:50%}
+  .lyric{
+    position:absolute;top:100%;left:50%;transform:translateX(-50%);
+    padding-top:10px;white-space:nowrap;
+    font-family:"Songti SC","SimSun","Noto Serif CJK SC",serif;
+    font-size:23px;line-height:1;
+  }
+  .spacer{flex:0 0 auto;width:32px}
+  .legend{flex:0 0 auto;display:flex;flex-direction:column;gap:16px}
+  .lg{display:flex;align-items:center;gap:14px}
+  .sw{
+    width:24px;height:24px;background:#fff;
+    border:1px solid var(--soft);border-radius:2px;
+    display:inline-flex;align-items:center;justify-content:center;
+  }
+  .sw.down{background:var(--down);border-color:#1F1F1F}
+  .sw.up{background:var(--up);border-color:#1F1F1F}
+  .sw.sharp{background:var(--sharp);border-color:#1F1F1F}
+  .lg-name{font-size:16px;letter-spacing:.22em}
+  .hint{margin:34px 0 0;color:#8A8A8A;font-size:13px;line-height:2}
+  .hint b{color:#5A5A5A;font-weight:600}
+  @media (max-width:900px){
+    .wrap{flex-direction:column;gap:28px}
+    .legend{flex-direction:row;flex-wrap:wrap;gap:16px 24px}
+  }
+  @media print{
+    body{padding:0}
+    .hint{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+<div class="title">《 晴 天 》</div><div class="rule"></div><div class="wrap">
+<div class="rows">
+<div class="row"><span class="box plain"><span class="key">C</span><span class="lyric">刮</span></span><span class="box plain"><span class="key">X</span><span class="lyric">风</span></span><span class="box plain"><span class="key">V</span><span class="lyric">这</span></span><span class="box plain"><span class="key">C</span><span class="lyric">天</span></span><span class="box plain"><span class="key">Z</span><span class="lyric">我</span></span><span class="box plain"><span class="key">B</span><span class="lyric">试</span></span><span class="box plain"><span class="key">M</span><span class="lyric">过</span></span><span class="box up"><span class="key">Z</span><span class="lyric">握</span></span><span class="box plain"><span class="key">M</span><span class="lyric">着</span></span><span class="box plain"><span class="key">B</span><span class="lyric">你</span></span><span class="box plain"><span class="key">Z</span><span class="lyric">手</span></span></div>
+<div class="row"><span class="box plain"><span class="key">Z</span><span class="lyric">但</span></span><span class="box plain"><span class="key">N</span><span class="lyric">偏</span></span><span class="box plain"><span class="key">N</span><span class="lyric">偏</span></span><span class="spacer"></span><span class="box plain"><span class="key">N</span><span class="lyric">雨</span></span><span class="box plain"><span class="key">B</span><span class="lyric">渐</span></span><span class="box plain"><span class="key">B</span><span class="lyric">渐</span></span><span class="box plain"><span class="key">B</span><span class="lyric">大</span></span><span class="box plain"><span class="key">V</span><span class="lyric">到</span></span><span class="box plain"><span class="key">C</span><span class="lyric">我</span></span><span class="box plain"><span class="key">X</span><span class="lyric">看</span></span><span class="box plain"><span class="key">C</span><span class="lyric">你</span></span><span class="box plain"><span class="key">V</span><span class="lyric">不</span></span><span class="box plain"><span class="key">C</span><span class="mark dash"></span><span class="lyric">见</span></span></div>
+<div class="row"><span class="box plain"><span class="key">C</span><span class="lyric">还</span></span><span class="box plain"><span class="key">V</span><span class="lyric">要</span></span><span class="box plain"><span class="key">B</span><span class="lyric">多</span></span><span class="box plain"><span class="key">C</span><span class="lyric">久</span></span><span class="box plain"><span class="key">V</span><span class="lyric">我</span></span><span class="box plain"><span class="key">B</span><span class="lyric">才</span></span><span class="box plain"><span class="key">M</span><span class="lyric">能</span></span><span class="box up"><span class="key">X</span><span class="lyric">在</span></span><span class="box plain"><span class="key">M</span><span class="lyric">你</span></span><span class="box plain"><span class="key">Z</span><span class="lyric">身</span></span><span class="box plain"><span class="key">Z</span><span class="mark dot"></span><span class="lyric">边</span></span></div>
+<div class="row"><span class="box up"><span class="key">Z</span><span class="lyric">等</span></span><span class="box plain"><span class="key">Z</span><span class="lyric">到</span></span><span class="box plain"><span class="key">B</span><span class="lyric">放</span></span><span class="box plain"><span class="key">B</span><span class="lyric">晴</span></span><span class="box plain"><span class="key">N</span><span class="lyric">的</span></span><span class="box plain"><span class="key">B</span><span class="lyric">那</span></span><span class="box plain"><span class="key">V</span><span class="lyric">天</span></span><span class="box plain"><span class="key">X</span><span class="lyric">也</span></span><span class="box plain"><span class="key">C</span><span class="lyric">许</span></span><span class="box plain"><span class="key">V</span><span class="lyric">我</span></span><span class="box plain"><span class="key">B</span><span class="lyric">会</span></span><span class="box plain"><span class="key">N</span><span class="lyric">比</span></span><span class="box plain"><span class="key">Z</span><span class="lyric">较</span></span><span class="box plain"><span class="key">N</span><span class="mark dot"></span><span class="lyric">好</span></span><span class="box plain"><span class="key">M</span><span class="lyric">一</span></span><span class="box plain"><span class="key">M</span><span class="lyric">点</span></span></div>
+<div class="row"><span class="box plain"><span class="key">C</span><span class="lyric">从</span></span><span class="box plain"><span class="key">X</span><span class="lyric">前</span></span><span class="box plain"><span class="key">V</span><span class="lyric">从</span></span><span class="box plain"><span class="key">C</span><span class="lyric">前</span></span><span class="spacer"></span><span class="box plain"><span class="key">Z</span><span class="lyric">有</span></span><span class="box plain"><span class="key">B</span><span class="lyric">个</span></span><span class="box plain"><span class="key">M</span><span class="lyric">人</span></span><span class="box up"><span class="key">Z</span><span class="lyric">爱</span></span><span class="box plain"><span class="key">M</span><span class="lyric">你</span></span><span class="box plain"><span class="key">B</span><span class="lyric">很</span></span><span class="box plain"><span class="key">Z</span><span class="mark dot"></span><span class="lyric">久</span></span><span class="box plain"><span class="key">Z</span><span class="lyric">但</span></span><span class="box plain"><span class="key">N</span><span class="lyric">偏</span></span><span class="box plain"><span class="key">N</span><span class="lyric">偏</span></span></div>
+<div class="row"><span class="box plain"><span class="key">N</span><span class="lyric">风</span></span><span class="box plain"><span class="key">B</span><span class="lyric">渐</span></span><span class="box plain"><span class="key">B</span><span class="lyric">渐</span></span><span class="spacer"></span><span class="box plain"><span class="key">B</span><span class="lyric">把</span></span><span class="box plain"><span class="key">V</span><span class="lyric">距</span></span><span class="box plain"><span class="key">C</span><span class="lyric">离</span></span><span class="box plain"><span class="key">X</span><span class="lyric">吹</span></span><span class="box plain"><span class="key">C</span><span class="lyric">得</span></span><span class="box plain"><span class="key">V</span><span class="lyric">好</span></span><span class="box plain"><span class="key">C</span><span class="mark dash"></span><span class="lyric">远</span></span></div>
+<div class="row"><span class="box plain"><span class="key">C</span><span class="lyric">好</span></span><span class="box plain"><span class="key">V</span><span class="lyric">不</span></span><span class="box plain"><span class="key">B</span><span class="lyric">容</span></span><span class="box plain"><span class="key">C</span><span class="lyric">易</span></span><span class="box plain"><span class="key">V</span><span class="lyric">又</span></span><span class="box plain"><span class="key">B</span><span class="lyric">能</span></span><span class="box plain"><span class="key">M</span><span class="lyric">再</span></span><span class="box up"><span class="key">X</span><span class="lyric">多</span></span><span class="box plain"><span class="key">M</span><span class="lyric">爱</span></span><span class="box plain"><span class="key">Z</span><span class="lyric">一</span></span><span class="box plain"><span class="key">Z</span><span class="mark dot"></span><span class="lyric">天</span></span></div>
+<div class="row"><span class="box up"><span class="key">Z</span><span class="lyric">故</span></span><span class="box plain"><span class="key">Z</span><span class="lyric">事</span></span><span class="box plain"><span class="key">B</span><span class="lyric">的</span></span><span class="box plain"><span class="key">B</span><span class="lyric">最</span></span><span class="box plain"><span class="key">N</span><span class="lyric">后</span></span><span class="box plain"><span class="key">B</span><span class="lyric">你</span></span><span class="box plain"><span class="key">V</span><span class="lyric">好</span></span><span class="box down"><span class="key">N</span><span class="lyric">像</span></span><span class="box plain"><span class="key">M</span><span class="lyric">还</span></span><span class="box plain"><span class="key">Z</span><span class="lyric">是</span></span><span class="box plain"><span class="key">X</span><span class="lyric">说</span></span><span class="box plain"><span class="key">C</span><span class="lyric">了</span></span><span class="box plain"><span class="key">X</span></span><span class="spacer"></span><span class="box plain"><span class="key">Z</span><span class="lyric">oh</span></span><span class="box plain"><span class="key">C</span><span class="lyric">bye</span></span><span class="box plain"><span class="key">Z</span><span class="lyric">bye</span></span></div>
+</div>
+<aside class="legend">
+<div class="lg"><span class="sw down"></span><span class="lg-name">降 调</span></div>
+<div class="lg"><span class="sw up"></span><span class="lg-name">升 调</span></div>
+<div class="lg"><span class="sw"><span class="mark dot"></span></span><span class="lg-name">半 长 按</span></div>
+<div class="lg"><span class="sw"><span class="mark dash"></span></span><span class="lg-name">长 按</span></div>
+</aside>
+</div>
+<p class="hint">
+  <b>怎么按</b>：单字 = 直接敲对应字母键；<b>低音（绿）</b> = 按住<b>鼠标左键</b>再敲；
+  <b>高音（红）</b> = 按住<b>鼠标右键</b>再敲；<b>半音（黄）</b> = 按住<b>鼠标中键</b>再敲。<br>
+  <b>时长</b>：框内有横杠 = 长按不放；框内有点 = 半长按；空白框 = 休止，跳过。
+</p>
+</div>
+</body>
+</html>

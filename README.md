@@ -1,24 +1,30 @@
 # 三角洲口琴谱生成器
 
-把歌曲简谱转成《三角洲行动》「守夜人口琴」的键盘琴谱，并渲染成图片。
+把歌曲简谱转成《三角洲行动》「守夜人口琴」的键盘琴谱，并渲染成图片或网页。
 
-输入一张简谱（截图 / 文本都行），输出一张白底琴谱图：键盘字母装在方框里、歌词逐字对齐在方框下方，
-**升调红底、降调绿底**，长按与半长按直接标在框内，右上角自带图例。
+输入一张简谱（截图 / 文本都行），输出一份琴谱：键盘字母装在方框里、歌词逐字对齐在方框下方，
+**升调红底、降调绿底**，长按与半长按直接标在框内，自带图例。
+
+两种输出，按扩展名自动选：`.png` 出图（需要 Pillow），`.html` 出网页（**零依赖**，字体交给浏览器）。
 
 ## 依赖什么
 
 只有两样东西，而且可以分开用：
 
-1. **`scripts/render_score.py`** —— 纯 Python + Pillow 写的命令行工具，**没有任何 AI 相关依赖**。
-   给一个乐谱文本文件就出图，不用 agent 也能跑。
+1. **`scripts/render_score.py`** —— 纯 Python 命令行工具，**没有任何 AI 相关依赖**。
+   给一个乐谱文本文件就出结果，不用 agent 也能跑。
+   - 出 PNG：需要 `Pillow` + 系统中文字体。
+   - 出 HTML：**标准库即可**，不需要 Pillow，也不需要系统装中文字体。
 2. **`SKILL.md`** —— 说明文档，讲「简谱怎么读对、键位怎么映射、交付前查什么」，遵循通用的
-   Agent Skill 格式（YAML frontmatter + Markdown 正文）。WorkBuddy、Claude Code、Cursor 等
+   Agent Skill 格式（YAML frontmatter + Markdown 正文）。WorkBuddy、Claude Code、Cursor、豆包等
    支持该格式的工具都能直接加载，**但它不是 WorkBuddy 专有的**。不加载它、光跑脚本也能出图，
    只是少了读谱规则和自检清单。
 
 ![《晴天》示例](examples/demo-晴天.png)
 
-> 上图由 `examples/晴天.txt` 一跑生成，可以自己复现：`python scripts/render_score.py examples/晴天.txt -o out.png`
+> 上图由 `examples/晴天.txt` 一跑生成，可以自己复现：
+> `python scripts/render_score.py examples/晴天.txt -o out.png`
+> 同款网页版在 [`examples/demo-晴天.html`](examples/demo-晴天.html)。
 
 ## 为什么需要它
 
@@ -28,7 +34,7 @@
 
 ## 安装
 
-**方式一：当 skill 用** —— 把整个目录复制到你的 agent 的 skills 目录（各家路径不同）：
+**方式一：当 skill 用** —— 把整个目录放进你的 agent 的 skills 目录（各家路径不同）：
 
 ```bash
 # WorkBuddy
@@ -36,6 +42,9 @@ xcopy /E /I delta-harmonica-score "%USERPROFILE%\.workbuddy\skills\delta-harmoni
 
 # Claude Code
 cp -r delta-harmonica-score ~/.claude/skills/
+
+# 豆包：在「技能·连接器·伙伴」里点 + →「上传技能」，选整个目录打包的 zip
+#       导入后会落在 workspace/.user_skills/delta-harmonica-score/
 
 # Cursor / 其它支持 SKILL.md 的工具：放进它约定的 skills 目录即可
 ```
@@ -45,10 +54,13 @@ cp -r delta-harmonica-score ~/.claude/skills/
 ```bash
 pip install pillow
 python scripts/render_score.py examples/晴天.txt -o out.png
+
+# 不想装 Pillow 就出网页版，一条命令够用：
+python scripts/render_score.py examples/晴天.txt -o out.html
 ```
 
-字体不用管，脚本会自动在系统里找（Windows 用宋体 + 微软雅黑，macOS 用 Songti / PingFang，Linux 找 Noto CJK），
-找不到会降级，不会报错中断。
+字体不用管，PNG 会自动在系统里找（Windows 用宋体 + 微软雅黑，macOS 用 Songti / PingFang，
+Linux 扫 Noto CJK / 文泉驿等），找不到会降级，不会报错中断；实在没有中文字体的机器请直接出 HTML。
 
 ## 用法
 
@@ -57,15 +69,30 @@ python scripts/render_score.py examples/晴天.txt -o out.png
 
 ```bash
 python scripts/render_score.py 歌曲.txt -o 歌曲-口琴谱.png --scale 2
+python scripts/render_score.py 歌曲.txt -o 歌曲-口琴谱.html --scale 2
 ```
 
 参数：
 
 | 参数 | 说明 |
 |---|---|
-| `-o` | 输出 PNG 路径 |
-| `--scale` | 清晰度倍数，默认 2（约 2300px 宽），要更清晰用 3 |
+| `-o` | 输出路径。`.png` 出图，`.html` 出零依赖网页 |
+| `--scale` | 清晰度倍数，默认 2（PNG 约 2300px 宽；HTML 约 52px 一格），要更清晰用 3 |
 | `--title` | 覆盖曲名 |
+| `--font-serif` | 仅 PNG：手动指定中文字体路径（自动查找失败时用） |
+| `--font-sans` | 仅 PNG：手动指定标题字体路径 |
+
+## 输出格式怎么选
+
+| | PNG | HTML |
+|---|---|---|
+| 依赖 | Pillow + 系统中文字体 | 无（标准库） |
+| 中文字体 | 依赖机器装了字体，否则方块 | 交给浏览器，任何中文设备都能显示 |
+| 分享 | 直接发图 | 双击打开 / 发链接；手机上自动换行 |
+| 打印 | 直接印 | 内置打印样式，可存 PDF |
+| 适合 | 发群里、发手机上看 | 云环境、没字体的机器、要打印 |
+
+两条路径出的谱面版式一致：标题、方框、红/绿/黄底色、框内时长符号、逐字歌词、图例全都对得上。
 
 ## 键位映射
 
@@ -100,7 +127,8 @@ python scripts/render_score.py 歌曲.txt -o 歌曲-口琴谱.png --scale 2
 1 6 6 / 6 5 5 5 4 3 2 3 4 3- | 但 偏 偏 雨 渐 渐 大 到 我 看 你 不 见
 ```
 
-长乐句会自动折行。音符数对不上歌词数时脚本会直接报错并指出行号，不会带病出图。
+长乐句会自动折行。音符数与歌词数对不上时，脚本仍会出图，但会在 stderr 明确报出错在哪一行 ——
+请先按提示修好 DSL 再交付。
 
 ## 目录结构
 
@@ -108,13 +136,14 @@ python scripts/render_score.py 歌曲.txt -o 歌曲-口琴谱.png --scale 2
 delta-harmonica-score/
 ├── SKILL.md                    # skill 定义：触发条件、映射规则、工作流、交付自检清单
 ├── scripts/
-│   └── render_score.py         # 渲染器（Pillow，无网络依赖）
+│   └── render_score.py         # 渲染器（PNG 用 Pillow，HTML 零依赖，无网络依赖）
 ├── references/
 │   ├── mapping.md              # 全量键位／音域表，含超出音域怎么降级
 │   └── jianpu.md               # 读简谱时最容易漏的记号：八度点、延音线、反复号、一字多音
 └── examples/
     ├── 晴天.txt                # 可跑的样例谱源
-    └── demo-晴天.png           # 样例输出
+    ├── demo-晴天.png           # 样例输出（图片版）
+    └── demo-晴天.html          # 样例输出（网页版）
 ```
 
 ## 已知边界

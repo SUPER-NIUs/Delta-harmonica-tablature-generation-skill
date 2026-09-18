@@ -1,23 +1,45 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-简谱 -> 《三角洲行动》守夜人口琴谱 图片渲染器
+简谱 -> 《三角洲行动》守夜人口琴谱 渲染器
 
 输入：一个纯文本乐谱文件（DSL，格式见 skill 的 references/format.md）
-输出：一张 PNG 图片，键盘字母装在方框里，歌词逐字对齐在方框下方。
+输出：PNG 图片（需要 Pillow + 一个中文字体）
+      或 HTML（零依赖，字体交给浏览器，云环境/无字体时用它）
+
       低音（降调）绿底、高音（升调）红底、半音黄底，长按/半长按在框内标出。
 
 用法：
-    python render_score.py song.txt -o out.png
+    python render_score.py song.txt -o out.png            # PNG，需要 Pillow
+    python render_score.py song.txt -o out.html           # HTML，零依赖
     python render_score.py song.txt -o out.png --scale 3 --title 晴天
+    python render_score.py song.txt -o out.png --font-serif /path/to/NotoSerifCJK.ttc
 """
 
 import argparse
+import glob
 import os
 import re
 import sys
 
-from PIL import Image, ImageDraw, ImageFont
+# Pillow 惰性导入：输出 HTML 时完全不需要它，云环境常没装
+Image = ImageDraw = ImageFont = None
+
+
+def _load_pil():
+    global Image, ImageDraw, ImageFont
+    if Image is None:
+        try:
+            from PIL import Image as _I, ImageDraw as _D, ImageFont as _F
+        except ImportError:
+            sys.stderr.write(
+                "ERROR: 生成 PNG 需要 Pillow，当前环境没有。\n"
+                "  方案一： pip install pillow\n"
+                "  方案二： 改出 HTML（零依赖，中文一定能显示）： -o out.html\n"
+            )
+            raise SystemExit(3)
+        Image, ImageDraw, ImageFont = _I, _D, _F
+    return Image, ImageDraw, ImageFont
 
 # ---------------------------------------------------------------- 音级 -> 按键
 NOTE_TO_KEY = {
@@ -38,10 +60,18 @@ C_DIVIDER = "#DCDCDC"
 TOKEN_RE = re.compile(r"^([#b]?)(\^+|_{1,2})?([0-7])([#b]?)([-.·]?)$")
 
 FONT_SERIF_CANDIDATES = [
+    # Windows
     r"C:\Windows\Fonts\simsun.ttc",
     r"C:\Windows\Fonts\msyh.ttc",
+    r"C:\Windows\Fonts\simhei.ttf",
+    # macOS
     "/System/Library/Fonts/Supplemental/Songti.ttc",
+    "/System/Library/Fonts/STHeiti Light.ttc",
+    # Linux（常见发行版）
     "/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc",
+    "/usr/share/fonts/noto-cjk/NotoSerifCJK-Regular.ttc",
+    "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+    "/usr/share/fonts/truetype/arphic/uming.ttc",
 ]
 FONT_SANS_CANDIDATES = [
     r"C:\Windows\Fonts\msyhbd.ttc",
@@ -49,17 +79,49 @@ FONT_SANS_CANDIDATES = [
     r"C:\Windows\Fonts\simhei.ttf",
     "/System/Library/Fonts/PingFang.ttc",
     "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+    "/usr/share/fonts/noto-cjk/NotoSansCJK-Bold.ttc",
+    "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
 ]
 
+# 各平台常见的 CJK 字体目录，硬编码路径之外的兜底扫描
+CJK_FONT_GLOBS = [
+    "/usr/share/fonts/**/Noto*CJK*.tt*",
+    "/usr/share/fonts/**/Noto*SC*.otf",
+    "/usr/share/fonts/**/SourceHan*",
+    "/usr/share/fonts/**/wqy-*.tt[cf]",
+    "/usr/share/fonts/**/DroidSansFallback*.ttf",
+    "/usr/local/share/fonts/**/*.tt[cf]",
+    "~/.fonts/**/*.tt[cf]",
+    "~/Library/Fonts/*Songti*",
+    "~/Library/Fonts/*PingFang*",
+]
+_font_scan_cache = None
 
-def find_font(candidates, size):
-    for path in candidates:
-        if os.path.exists(path):
+
+def scan_cjk_fonts():
+    global _font_scan_cache
+    if _font_scan_cache is None:
+        found = []
+        for pattern in CJK_FONT_GLOBS:
+            found.extend(sorted(glob.glob(os.path.expanduser(pattern), recursive=True)))
+        _font_scan_cache = found
+    return _font_scan_cache
+
+
+def find_font(candidates, size, override=None):
+    """返回 (字体对象, 字体路径)。找不到时返回 (默认位图字体, None) —— 中文会变方块。"""
+    paths = []
+    if override:
+        paths.append(override)
+    paths.extend(candidates)
+    paths.extend(scan_cjk_fonts())
+    for path in paths:
+        if path and os.path.exists(path):
             try:
-                return ImageFont.truetype(path, size)
+                return ImageFont.truetype(path, size), path
             except Exception:
                 continue
-    return ImageFont.load_default()
+    return ImageFont.load_default(), None
 
 
 # ---------------------------------------------------------------- 乐谱解析
@@ -185,8 +247,39 @@ def row_width(items, box_w, box_gap, group_gap):
     return max(0, w - box_gap)
 
 
-def render(title, phrases, out_path, scale=2, theme="light"):
+# ---------------------------------------------------------------- 公共：配色与图例
+def color_for(it):
+    """一个槽位该用哪种底色：plain / down / up / sharp / rest"""
+    if it.kind == "rest":
+        return "rest"
+    if it.accidental:
+        return "sharp"
+    if it.octave > 0:
+        return "up"
+    if it.octave < 0:
+        return "down"
+    return "plain"
+
+
+def build_legend(rows):
+    """图例条目 [(名称, 类型)]，类型为 down/up/sharp/dot/dash。半音按需出现。"""
+    items = [("降调", "down"), ("升调", "up")]
+    if any(it.accidental for r in rows for it in r if it.kind == "note"):
+        items.append(("半音", "sharp"))
+    items += [("半长按", "dot"), ("长按", "dash")]
+    return items
+
+
+def box_label(it):
+    """槽位里显示的字符：倍高音 1 在琴上是逗号键。"""
+    if it.octave == 2 and it.key == "Z":
+        return ","
+    return it.key
+
+
+def render(title, phrases, out_path, scale=2, font_serif=None, font_sans=None):
     S = scale
+    _load_pil()
     BOX = 46 * S
     BOX_GAP = 6 * S
     GROUP_GAP = 34 * S
@@ -199,10 +292,10 @@ def render(title, phrases, out_path, scale=2, theme="light"):
     LEGEND_ITEM_H = 40 * S
     LEGEND_ITEM_GAP = 28 * S
 
-    f_title = find_font(FONT_SANS_CANDIDATES, 50 * S)
-    f_letter = find_font(FONT_SERIF_CANDIDATES, 30 * S)
-    f_lyric = find_font(FONT_SERIF_CANDIDATES, 23 * S)
-    f_legend = find_font(FONT_SANS_CANDIDATES, 27 * S)
+    f_title, _ = find_font(FONT_SANS_CANDIDATES, 50 * S, font_sans)
+    f_letter, _ = find_font(FONT_SERIF_CANDIDATES, 30 * S, font_serif)
+    f_lyric, _ = find_font(FONT_SERIF_CANDIDATES, 23 * S, font_serif)
+    f_legend, _ = find_font(FONT_SANS_CANDIDATES, 27 * S, font_sans)
 
     rows = layout_rows(phrases, BOX, BOX_GAP, GROUP_GAP, LINE_W)
     if not rows:
@@ -210,14 +303,9 @@ def render(title, phrases, out_path, scale=2, theme="light"):
 
     max_row_w = max(row_width(r, BOX, BOX_GAP, GROUP_GAP) for r in rows)
 
-    used_accidental = any(
-        it.accidental for r in rows for it in r if it.kind == "note"
-    )
-    legend = [("降调", C_FILL_DOWN, "fill"),
-              ("升调", C_FILL_UP, "fill")]
-    if used_accidental:
-        legend.append(("半音", C_FILL_SHARP, "fill"))
-    legend += [("半长按", None, "dot"), ("长按", None, "dash")]
+    legend = [(name, {"down": C_FILL_DOWN, "up": C_FILL_UP,
+                      "sharp": C_FILL_SHARP}.get(kind), kind)
+              for name, kind in build_legend(rows)]
 
     canvas_w = int(MARGIN * 2 + max_row_w + LEGEND_GAP + LEGEND_W)
     title_block = (70 * S) if title else 0
@@ -257,21 +345,14 @@ def render(title, phrases, out_path, scale=2, theme="light"):
                 x += BOX + BOX_GAP
                 continue
 
-            fill = C_BG
-            if it.accidental:
-                fill = C_FILL_SHARP
-            elif it.octave > 0:
-                fill = C_FILL_UP
-            elif it.octave < 0:
-                fill = C_FILL_DOWN
+            fill = {"down": C_FILL_DOWN, "up": C_FILL_UP,
+                    "sharp": C_FILL_SHARP}.get(color_for(it), C_BG)
 
             bx = x
             d.rectangle([bx, y, bx + BOX, y + BOX], fill=fill,
                         outline=C_BORDER, width=max(1, S))
 
-            label = it.key
-            if it.octave == 2 and it.key == "Z":
-                label = ","
+            label = box_label(it)
             mark = it.duration  # "" | "-" 长按 | "." 半长按
 
             # 时长符号用图形绘制，避免字体缺字
@@ -318,19 +399,212 @@ def render(title, phrases, out_path, scale=2, theme="light"):
     return out_path, img.size
 
 
+# ---------------------------------------------------------------- HTML 输出（零依赖）
+# 云环境/无中文字体/没装 Pillow 时用这条路径：字体交给浏览器，
+# 任何中文系统都能正常显示，手机上也自适应换行。
+HTML_TEMPLATE = """<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+<style>
+  :root{
+    --down:#93D2B8; --up:#F2A0A0; --sharp:#F5CE80;
+    --ink:#111111; --soft:#9A9A9A; --line:#DCDCDC;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:#fff;color:var(--ink);
+    font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",
+                "Noto Sans CJK SC","Source Han Sans SC","WenQuanYi Micro Hei",sans-serif;
+    padding:26px 18px 44px;-webkit-text-size-adjust:100%;
+  }
+  .sheet{max-width:1180px;margin:0 auto}
+  .title{
+    margin:0 0 16px;text-align:center;font-weight:700;letter-spacing:.16em;
+    font-family:"Songti SC","SimSun","Noto Serif CJK SC","Source Han Serif SC",serif;
+    font-size:__F_TITLE__px;
+  }
+  .rule{height:1px;background:var(--line);margin:0 0 28px}
+  .wrap{display:flex;gap:36px;align-items:flex-start}
+  .rows{flex:1 1 auto;min-width:0}
+  .row{
+    display:flex;flex-wrap:wrap;align-content:flex-start;
+    column-gap:__BOX_GAP__px;row-gap:__ROW_GAP__px;
+    margin:0 0 __ROW_MARGIN__px;
+  }
+  .box{
+    position:relative;flex:0 0 auto;
+    width:__BOX__px;height:__BOX__px;
+    display:inline-flex;align-items:center;justify-content:center;gap:3px;
+    border:1px solid #1F1F1F;border-radius:2px;background:#fff;
+  }
+  .box.down{background:var(--down)}
+  .box.up{background:var(--up)}
+  .box.sharp{background:var(--sharp)}
+  .box.rest{background:#fff;border-color:var(--soft);border-style:dashed}
+  .key{
+    font-family:Georgia,"Times New Roman","Songti SC",serif;
+    font-size:__F_KEY__px;font-weight:700;line-height:1;
+  }
+  .mark{display:inline-block;background:var(--ink);flex:0 0 auto}
+  .mark.dash{width:__DASH_W__px;height:__DASH_H__px;border-radius:1px}
+  .mark.dot{width:__DOT__px;height:__DOT__px;border-radius:50%}
+  .lyric{
+    position:absolute;top:100%;left:50%;transform:translateX(-50%);
+    padding-top:__LYR_DY__px;white-space:nowrap;
+    font-family:"Songti SC","SimSun","Noto Serif CJK SC",serif;
+    font-size:__F_LYRIC__px;line-height:1;
+  }
+  .spacer{flex:0 0 auto;width:__GROUP_GAP__px}
+  .legend{flex:0 0 auto;display:flex;flex-direction:column;gap:__LEG_GAP__px}
+  .lg{display:flex;align-items:center;gap:14px}
+  .sw{
+    width:__SW__px;height:__SW__px;background:#fff;
+    border:1px solid var(--soft);border-radius:2px;
+    display:inline-flex;align-items:center;justify-content:center;
+  }
+  .sw.down{background:var(--down);border-color:#1F1F1F}
+  .sw.up{background:var(--up);border-color:#1F1F1F}
+  .sw.sharp{background:var(--sharp);border-color:#1F1F1F}
+  .lg-name{font-size:__F_LEG__px;letter-spacing:.22em}
+  .hint{margin:34px 0 0;color:#8A8A8A;font-size:13px;line-height:2}
+  .hint b{color:#5A5A5A;font-weight:600}
+  @media (max-width:900px){
+    .wrap{flex-direction:column;gap:28px}
+    .legend{flex-direction:row;flex-wrap:wrap;gap:16px 24px}
+  }
+  @media print{
+    body{padding:0}
+    .hint{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+__TITLE_BLOCK____RULE__<div class="wrap">
+<div class="rows">
+__SCORE__
+</div>
+<aside class="legend">
+__LEGEND__
+</aside>
+</div>
+<p class="hint">
+  <b>怎么按</b>：单字 = 直接敲对应字母键；<b>低音（绿）</b> = 按住<b>鼠标左键</b>再敲；
+  <b>高音（红）</b> = 按住<b>鼠标右键</b>再敲；<b>半音（黄）</b> = 按住<b>鼠标中键</b>再敲。<br>
+  <b>时长</b>：框内有横杠 = 长按不放；框内有点 = 半长按；空白框 = 休止，跳过。
+</p>
+</div>
+</body>
+</html>
+"""
+
+
+def _esc(s):
+    return (str(s).replace("&", "&amp;").replace("<", "&lt;")
+            .replace(">", "&gt;").replace('"', "&quot;"))
+
+
+def _html_box(it):
+    cls = color_for(it)
+    if it.kind == "gap":
+        return '<span class="spacer"></span>'
+    parts = []
+    if it.kind == "note":
+        parts.append(f'<span class="key">{_esc(box_label(it))}</span>')
+        if it.duration == "-":
+            parts.append('<span class="mark dash"></span>')
+        elif it.duration == ".":
+            parts.append('<span class="mark dot"></span>')
+    if it.lyric:
+        parts.append(f'<span class="lyric">{_esc(it.lyric)}</span>')
+    return f'<span class="box {cls}">' + "".join(parts) + "</span>"
+
+
+def _html_legend_item(name, kind):
+    if kind == "dot":
+        sw = '<span class="sw"><span class="mark dot"></span></span>'
+    elif kind == "dash":
+        sw = '<span class="sw"><span class="mark dash"></span></span>'
+    else:
+        sw = f'<span class="sw {kind}"></span>'
+    return f'<div class="lg">{sw}<span class="lg-name">{_esc(" ".join(name))}</span></div>'
+
+
+def render_html(title, phrases, out_path, scale=2):
+    S = max(1, scale)
+    BOX = 26 * S
+    vals = {
+        "BOX": BOX,
+        "BOX_GAP": max(4, round(BOX * 0.14)),
+        "GROUP_GAP": round(BOX * 0.62),
+        "F_KEY": round(BOX * 0.52),
+        "F_LYRIC": round(BOX * 0.44),
+        "F_LEG": round(BOX * 0.30),
+        "F_TITLE": round(BOX * 0.86),
+        "LYR_DY": round(BOX * 0.20),
+        "DASH_W": round(BOX * 0.30),
+        "DASH_H": max(2, round(BOX * 0.065)),
+        "DOT": round(BOX * 0.16),
+        "SW": round(BOX * 0.47),
+        "LEG_GAP": round(BOX * 0.30),
+    }
+    vals["ROW_GAP"] = vals["LYR_DY"] + vals["F_LYRIC"] + round(BOX * 0.38)
+    vals["ROW_MARGIN"] = round(BOX * 0.56)
+
+    rows = [r for r in phrases if any(it.kind != "gap" for it in r)]
+    if not rows:
+        raise SystemExit("乐谱是空的：没解析出任何音符。")
+
+    legend = [_html_legend_item(n, k) for n, k in build_legend(
+        [r for r in rows])]
+
+    html = HTML_TEMPLATE
+    for key, value in vals.items():
+        html = html.replace(f"__{key}__", str(value))
+    html = html.replace("__TITLE__", _esc(title or "三角洲口琴谱"))
+    if title:
+        html = html.replace("__TITLE_BLOCK__",
+                            f'<div class="title">{_esc("《 " + " ".join(title) + " 》")}</div>')
+        html = html.replace("__RULE__", '<div class="rule"></div>')
+    else:
+        html = html.replace("__TITLE_BLOCK__", "").replace("__RULE__", "")
+    html = html.replace("__SCORE__", "\n".join(
+        '<div class="row">' + "".join(_html_box(it) for it in row) + "</div>"
+        for row in rows))
+    html = html.replace("__LEGEND__", "\n".join(legend))
+
+    with open(out_path, "w", encoding="utf-8") as fh:
+        fh.write(html)
+    return out_path
+
+
 def main():
-    ap = argparse.ArgumentParser(description="简谱 -> 三角洲口琴谱图片")
+    ap = argparse.ArgumentParser(description="简谱 -> 三角洲口琴谱（PNG 或 HTML）")
     ap.add_argument("input", help="简谱 DSL 文本文件")
-    ap.add_argument("-o", "--output", default="harmonica_score.png")
+    ap.add_argument("-o", "--output", default="harmonica_score.png",
+                    help="输出文件；.html 结尾则输出零依赖网页版")
     ap.add_argument("--scale", type=int, default=2, help="清晰度倍数，默认 2")
     ap.add_argument("--title", default=None, help="覆盖曲名")
+    ap.add_argument("--font-serif", default=None, help="[PNG] 指定衬线中文字体路径")
+    ap.add_argument("--font-sans", default=None, help="[PNG] 指定无衬线中文字体路径")
     args = ap.parse_args()
 
     title, phrases = parse(args.input)
     if args.title:
         title = args.title
-    path, size = render(title, phrases, args.output, scale=max(1, args.scale))
-    print(f"OK {path} {size[0]}x{size[1]}")
+    scale = max(1, args.scale)
+
+    if args.output.lower().endswith((".html", ".htm")):
+        path = render_html(title, phrases, args.output, scale=scale)
+        print(f"OK {path} html")
+    else:
+        path, size = render(title, phrases, args.output, scale=scale,
+                            font_serif=args.font_serif, font_sans=args.font_sans)
+        print(f"OK {path} {size[0]}x{size[1]}")
 
 
 if __name__ == "__main__":
