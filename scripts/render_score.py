@@ -577,7 +577,9 @@ def render_html(title, phrases, out_path, scale=2):
         for row in rows))
     html = html.replace("__LEGEND__", "\n".join(legend))
 
-    with open(out_path, "w", encoding="utf-8") as fh:
+    # newline="\n"：Windows 的文本模式会把 \n 翻成 \r\n，HTML 里没必要，
+    # 还会让 git 的 CRLF 归一化把逐字节校验搞出假报错。
+    with open(out_path, "w", encoding="utf-8", newline="\n") as fh:
         fh.write(html)
     return out_path
 
