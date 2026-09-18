@@ -15,6 +15,11 @@ agent_created: true
 **1. 读谱只读一遍。** 看不清的细节（八度点、附点、小节线）按最常见的情况处理，交付时提一句。
 **禁止**分区放大重读、重复 OCR、"验证识别结果"、为同一行做二次核对。
 
+> 例外：用户给的是**低清图片**时，"读一遍"要读得聪明。用
+> `python3 scripts/read_jianpu.py 简谱.png -o 工作目录` 把八度点跑出来，
+> **看一眼它生成的 `overlay.png`**（红圈=检测到的点，圈错圈漏一眼可见），再动手转写。
+> 这仍然只算一轮，但远比肉眼看糊图可靠。方法细节见 `references/read-jianpu-image.md`。
+
 **2. 不许追查版本。** 同一首歌的 G 调 / D 调、简谱 / 吉他谱 / 弹唱谱来源**必然对不上**。
 **选一个用**，交付时一行说明（如"按 D 调版本"），然后继续往下做。
 **禁止**为确定"原版是什么调"去比对多个谱源、试唱验证、逐句交叉核对、判定"唯一标准"。
@@ -147,5 +152,6 @@ python <skill_dir>/scripts/render_score.py <输入.txt> -o <输出.png>
 > 装到豆包用「技能·连接器·伙伴 → + → 上传技能」
 > （落在 `workspace/.user_skills/delta-harmonica-tablature-generation-skill/`）。
 
-读谱细节见 `references/jianpu.md`；样例见 `examples/晴天.txt`，
-输出效果见 `examples/demo-晴天.png` 与 `examples/demo-晴天.html`。
+读谱细节见 `references/jianpu.md`；**图片读不准时**见 `references/read-jianpu-image.md`
+（含 `scripts/read_jianpu.py`，把八度点检测出来并画回原图供核对）；
+样例见 `examples/晴天.txt`，输出效果见 `examples/demo-晴天.png` 与 `examples/demo-晴天.html`。

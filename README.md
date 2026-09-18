@@ -155,15 +155,31 @@ python scripts/render_score.py 歌曲.txt -o 歌曲-口琴谱.html --scale 2
 delta-harmonica-tablature-generation-skill/
 ├── SKILL.md                    # skill 定义：反内耗预算、映射规则、工作流、交付清单
 ├── scripts/
-│   └── render_score.py         # 渲染器（PNG 用 Pillow，HTML 零依赖，无网络依赖）
+│   ├── render_score.py         # 渲染器（PNG 用 Pillow，HTML 零依赖，无网络依赖）
+│   └── read_jianpu.py          # 低清简谱图的八度点检测（画出 overlay 供核对）
 ├── references/
 │   ├── mapping.md              # 全量键位／音域表，含超出音域怎么降级
-│   └── jianpu.md               # 读谱速查：八度点、时长线、调号、一字多音怎么处理
+│   ├── jianpu.md               # 读谱速查：八度点、时长线、调号、一字多音怎么处理
+│   └── read-jianpu-image.md    # 图片读不准时怎么办（含交叉验证自检技巧）
 └── examples/
     ├── 晴天.txt                # 可跑的样例谱源
     ├── demo-晴天.png           # 样例输出（图片版）
     └── demo-晴天.html          # 样例输出（网页版）
 ```
+
+## 用户给的是低清截图时
+
+别硬看。用附带的检测脚本把八度点跑出来，它会同时生成一张画回原图的 overlay：
+
+```bash
+python3 scripts/read_jianpu.py 简谱.png -o .
+```
+
+输出每行的「`^` 高音 / `v` 低音 / `_` 无点」槽位序列；
+`overlay.png` 上红圈是检测到的点、蓝线是数字中心、绿线是数字行上下界 —— **圈错圈漏一眼可见**。
+这一步不能省，自动检测受低对比度和字块粘连影响，出错时是安静出错。
+
+怎么看准，见 [`references/read-jianpu-image.md`](references/read-jianpu-image.md)。
 
 ## 已知边界
 
@@ -171,7 +187,9 @@ delta-harmonica-tablature-generation-skill/
 - 音域：中音 / 高音 / 低音各一组是稳妥范围。倍低音按不出来；倍高音只有 `^^1`（右键 + 逗号）可达。
 - 半音（中键）操作别扭，偶尔出现没问题，整首歌大面积半音建议提醒演奏者。
 - 快歌里密集的十六分音符对普通人不友好，密集段建议只保留主旋律骨干音。
-- 八度的判断依赖简谱上那个小点。如果是低清截图，建议再找一份逐字对齐的谱源交叉核对 —— 漏一个点就错一个音。
+- 八度的判断依赖简谱上那个小点，低清截图容易漏。**用上面的 `read_jianpu.py` 核对，
+  再加一条自检：同一段旋律重复出现时（主歌两段、副歌重复），点位置必须完全一致 ——
+  对得上基本就是读对了。不要去搜别的谱源交叉比对，那是烧 token 的头号坑。**
 
 ## License
 
