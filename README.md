@@ -8,7 +8,8 @@
 输入一张简谱（截图 / 文本都行），输出一份琴谱：键盘字母装在方框里、歌词逐字对齐在方框下方，
 **升调红底、降调绿底**，长按与半长按直接标在框内，自带图例。
 
-两种输出，按扩展名自动选：`.png` 出图（需要 Pillow），`.html` 出网页（**零依赖**，字体交给浏览器）。
+**默认出 PNG**。只有在环境没装 Pillow、或机器没有中文字体（图上汉字会变方块）时，
+才退回零依赖的 HTML 网页版 —— 脚本会自己提示该退，不用靠肉眼看图判断。
 
 ## 依赖什么
 
@@ -16,12 +17,12 @@
 
 1. **`scripts/render_score.py`** —— 纯 Python 命令行工具，**没有任何 AI 相关依赖**。
    给一个乐谱文本文件就出结果，不用 agent 也能跑。
-   - 出 PNG：需要 `Pillow` + 系统中文字体。
-   - 出 HTML：**标准库即可**，不需要 Pillow，也不需要系统装中文字体。
-2. **`SKILL.md`** —— 说明文档，讲「简谱怎么读对、键位怎么映射、交付前查什么」，遵循通用的
+   - 默认出 **PNG**：需要 `Pillow` + 系统中文字体。
+   - 兜底出 **HTML**（仅当 PNG 做不出来）：**标准库即可**，不需要 Pillow，也不需要系统装中文字体。
+2. **`SKILL.md`** —— 说明文档，讲「简谱怎么读对、键位怎么映射、什么该较真什么不该」，遵循通用的
    Agent Skill 格式（YAML frontmatter + Markdown 正文）。WorkBuddy、Claude Code、Cursor、豆包等
    支持该格式的工具都能直接加载，**但它不是 WorkBuddy 专有的**。不加载它、光跑脚本也能出图，
-   只是少了读谱规则和自检清单。
+   只是少了读谱规则和交付红线。
 
 ![《晴天》示例](examples/demo-晴天.png)
 
@@ -58,13 +59,11 @@ cp -r delta-harmonica-tablature-generation-skill ~/.claude/skills/
 ```bash
 pip install pillow
 python scripts/render_score.py examples/晴天.txt -o out.png
-
-# 不想装 Pillow 就出网页版，一条命令够用：
-python scripts/render_score.py examples/晴天.txt -o out.html
 ```
 
 字体不用管，PNG 会自动在系统里找（Windows 用宋体 + 微软雅黑，macOS 用 Songti / PingFang，
-Linux 扫 Noto CJK / 文泉驿等），找不到会降级，不会报错中断；实在没有中文字体的机器请直接出 HTML。
+Linux 扫 Noto CJK / 文泉驿等）。**找不到中文字体的机器，脚本会明确提示你改用 `.html`**，
+不用自己判断。
 
 ## 用法
 
@@ -73,6 +72,8 @@ Linux 扫 Noto CJK / 文泉驿等），找不到会降级，不会报错中断�
 
 ```bash
 python scripts/render_score.py 歌曲.txt -o 歌曲-口琴谱.png --scale 2
+
+# 仅当上面报"没有 Pillow"或"未找到中文字体"时才用：
 python scripts/render_score.py 歌曲.txt -o 歌曲-口琴谱.html --scale 2
 ```
 
@@ -80,23 +81,21 @@ python scripts/render_score.py 歌曲.txt -o 歌曲-口琴谱.html --scale 2
 
 | 参数 | 说明 |
 |---|---|
-| `-o` | 输出路径。`.png` 出图，`.html` 出零依赖网页 |
-| `--scale` | 清晰度倍数，默认 2（PNG 约 2300px 宽；HTML 约 52px 一格），要更清晰用 3 |
+| `-o` | 输出路径。**默认用 `.png`**；`.html` 是兜底（零依赖） |
+| `--scale` | 清晰度倍数，默认 2（PNG 约 2300px 宽），要更清晰用 3 |
 | `--title` | 覆盖曲名 |
 | `--font-serif` | 仅 PNG：手动指定中文字体路径（自动查找失败时用） |
 | `--font-sans` | 仅 PNG：手动指定标题字体路径 |
 
-## 输出格式怎么选
+## 输出格式
 
-| | PNG | HTML |
-|---|---|---|
-| 依赖 | Pillow + 系统中文字体 | 无（标准库） |
-| 中文字体 | 依赖机器装了字体，否则方块 | 交给浏览器，任何中文设备都能显示 |
-| 分享 | 直接发图 | 双击打开 / 发链接；手机上自动换行 |
-| 打印 | 直接印 | 内置打印样式，可存 PDF |
-| 适合 | 发群里、发手机上看 | 云环境、没字体的机器、要打印 |
+**PNG 是默认也是首选** —— 能直接发群、存相册，不用点链接。
 
-两条路径出的谱面版式一致：标题、方框、红/绿/黄底色、框内时长符号、逐字歌词、图例全都对得上。
+只有两种情况退回 HTML（`-o out.html`，零依赖，字体交给浏览器，窄屏还会自动换行）：
+
+- 环境没装 Pillow；
+- 机器没有中文字体 —— 脚本会打印「需要换输出格式：未找到任何系统中文字体」，
+  照着改成 `.html` 再跑一次即可。**产出的版式和 PNG 完全一致。**
 
 ## 键位映射
 

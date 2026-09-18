@@ -4,20 +4,20 @@
 简谱 -> 《三角洲行动》守夜人口琴谱 渲染器
 
 输入：一个纯文本乐谱文件（DSL，格式见 SKILL.md 第四节）
-输出：PNG 图片（需要 Pillow + 一个中文字体）
-      或 HTML（零依赖，字体交给浏览器，云环境/无字体时用它）
+输出：**默认 PNG**（需要 Pillow + 一个中文字体）；
+      仅当 PNG 做不出来时才退到 HTML（零依赖，字体交给浏览器）。
 
       低音（降调）绿底、高音（升调）红底、半音黄底，长按/半长按在框内标出。
 
 行为约定（给调用它的 agent 看）：
-    音符数与歌词数不一致、记号看不懂、超出音域 —— 这些一律只是**提示**，
-    照常出图，提示打印在 stdout 并标注"无需处理"。不要去"修"它们。
+    1. 音符数与歌词数不一致、记号看不懂、超出音域 —— 一律只是**提示**，照常出图。
+       提示打印在 stdout 并标注"无需处理"。不要去"修"它们。
+    2. 找不到中文字体时，会打印"需要换输出格式"，告诉你改用 -o out.html。
 
 用法：
-    python render_score.py song.txt -o out.png            # PNG，需要 Pillow
-    python render_score.py song.txt -o out.html           # HTML，零依赖
+    python render_score.py song.txt -o out.png            # 默认，优先用这个
+    python render_score.py song.txt -o out.html           # 兜底，仅当 PNG 做不出来
     python render_score.py song.txt -o out.png --scale 3 --title 晴天
-    python render_score.py song.txt -o out.png --font-serif /path/to/NotoSerifCJK.ttc
 """
 
 import argparse
@@ -298,10 +298,18 @@ def render(title, phrases, out_path, scale=2, font_serif=None, font_sans=None):
     LEGEND_ITEM_H = 40 * S
     LEGEND_ITEM_GAP = 28 * S
 
-    f_title, _ = find_font(FONT_SANS_CANDIDATES, 50 * S, font_sans)
-    f_letter, _ = find_font(FONT_SERIF_CANDIDATES, 30 * S, font_serif)
-    f_lyric, _ = find_font(FONT_SERIF_CANDIDATES, 23 * S, font_serif)
+    f_title, p_title = find_font(FONT_SANS_CANDIDATES, 50 * S, font_sans)
+    f_letter, p_letter = find_font(FONT_SERIF_CANDIDATES, 30 * S, font_serif)
+    f_lyric, p_lyric = find_font(FONT_SERIF_CANDIDATES, 23 * S, font_serif)
     f_legend, _ = find_font(FONT_SANS_CANDIDATES, 27 * S, font_sans)
+
+    # 一个中文字体都没找到时，PNG 里的汉字会是方块。与其让调用方去"看"图，
+    # 不如在这里直接说清楚该改成 HTML —— 省掉一轮截图检查。
+    warn = None
+    if not any((p_title, p_letter, p_lyric)):
+        warn = ("未找到任何系统中文字体，这张图里的汉字会显示成方块。"
+                "请改用 -o out.html 重跑（HTML 零依赖，字体交给浏览器）。"
+                "不要为了出 PNG 去安装字体。")
 
     rows = layout_rows(phrases, BOX, BOX_GAP, GROUP_GAP, LINE_W)
     if not rows:
@@ -402,7 +410,7 @@ def render(title, phrases, out_path, scale=2, font_serif=None, font_sans=None):
         ly += sw_h + LEGEND_ITEM_GAP
 
     img.save(out_path, "PNG")
-    return out_path, img.size
+    return out_path, img.size, warn
 
 
 # ---------------------------------------------------------------- HTML 输出（零依赖）
@@ -591,10 +599,10 @@ def render_html(title, phrases, out_path, scale=2):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="简谱 -> 三角洲口琴谱（PNG 或 HTML）")
+    ap = argparse.ArgumentParser(description="简谱 -> 三角洲口琴谱（默认 PNG）")
     ap.add_argument("input", help="简谱 DSL 文本文件")
     ap.add_argument("-o", "--output", default="harmonica_score.png",
-                    help="输出文件；.html 结尾则输出零依赖网页版")
+                    help="输出文件；默认 .png。.html 结尾则输出零依赖网页版（仅当 PNG 做不出来时用）")
     ap.add_argument("--scale", type=int, default=2, help="清晰度倍数，默认 2")
     ap.add_argument("--title", default=None, help="覆盖曲名")
     ap.add_argument("--font-serif", default=None, help="[PNG] 指定衬线中文字体路径")
@@ -613,13 +621,15 @@ def main():
         for n in notes:
             print("  " + n)
 
-    if args.output.lower().endswith((".html", ".htm")):
+    want_html = args.output.lower().endswith((".html", ".htm"))
+    if want_html:
         path = render_html(title, phrases, args.output, scale=scale)
-        print(f"OK {path} html")
     else:
-        path, size = render(title, phrases, args.output, scale=scale,
-                            font_serif=args.font_serif, font_sans=args.font_sans)
-        print(f"OK {path} {size[0]}x{size[1]}")
+        path, size, warn = render(title, phrases, args.output, scale=scale,
+                                  font_serif=args.font_serif, font_sans=args.font_sans)
+        if warn:
+            print(f"需要换输出格式：{warn}")
+    print(f"OK {path}")
 
 
 if __name__ == "__main__":
