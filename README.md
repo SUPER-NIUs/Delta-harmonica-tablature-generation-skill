@@ -1,9 +1,20 @@
-# 三角洲口琴谱生成器
+# delta-harmonica-score
 
-把歌曲简谱转成《三角洲行动》「守夜人口琴」的键盘琴谱，并渲染成图片的 WorkBuddy Skill。
+把歌曲简谱转成《三角洲行动》「守夜人口琴」的键盘琴谱，并渲染成图片。
 
 输入一张简谱（截图 / 文本都行），输出一张白底琴谱图：键盘字母装在方框里、歌词逐字对齐在方框下方，
 **升调红底、降调绿底**，长按与半长按直接标在框内，右上角自带图例。
+
+## 依赖什么
+
+只有两样东西，而且可以分开用：
+
+1. **`scripts/render_score.py`** —— 纯 Python + Pillow 写的命令行工具，**没有任何 AI 相关依赖**。
+   给一个乐谱文本文件就出图，不用 agent 也能跑。
+2. **`SKILL.md`** —— 说明文档，讲「简谱怎么读对、键位怎么映射、交付前查什么」，遵循通用的
+   Agent Skill 格式（YAML frontmatter + Markdown 正文）。WorkBuddy、Claude Code、Cursor 等
+   支持该格式的工具都能直接加载，**但它不是 WorkBuddy 专有的**。不加载它、光跑脚本也能出图，
+   只是少了读谱规则和自检清单。
 
 ![《晴天》示例](examples/demo-晴天.png)
 
@@ -17,20 +28,23 @@
 
 ## 安装
 
-把整个目录复制到 WorkBuddy 的用户级 skills 目录：
+**方式一：当 skill 用** —— 把整个目录复制到你的 agent 的 skills 目录（各家路径不同）：
 
 ```bash
-# Windows
+# WorkBuddy
 xcopy /E /I delta-harmonica-score "%USERPROFILE%\.workbuddy\skills\delta-harmonica-score"
 
-# macOS / Linux
-cp -r delta-harmonica-score ~/.workbuddy/skills/
+# Claude Code
+cp -r delta-harmonica-score ~/.claude/skills/
+
+# Cursor / 其它支持 SKILL.md 的工具：放进它约定的 skills 目录即可
 ```
 
-依赖只有一个 Pillow（渲染用）：
+**方式二：只当命令行工具用** —— 不需要 agent，也不需要放特定目录，clone 下来就能跑：
 
 ```bash
 pip install pillow
+python scripts/render_score.py examples/晴天.txt -o out.png
 ```
 
 字体不用管，脚本会自动在系统里找（Windows 用宋体 + 微软雅黑，macOS 用 Songti / PingFang，Linux 找 Noto CJK），
@@ -38,8 +52,8 @@ pip install pillow
 
 ## 用法
 
-在 WorkBuddy 里直接说「把这张简谱转成三角洲口琴谱」并附上简谱图片即可。
-也可以手写乐谱文件后自己跑脚本：
+在支持 SKILL.md 的 agent 里直接说「把这张简谱转成三角洲口琴谱」并附上简谱图片，它会读图、转写、出图。
+或者手写乐谱文件后自己跑脚本（这条路径不依赖任何 agent）：
 
 ```bash
 python scripts/render_score.py 歌曲.txt -o 歌曲-口琴谱.png --scale 2

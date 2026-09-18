@@ -48,7 +48,7 @@ agent_created: true
 2. **转写**：逐句转成 DSL（格式见下），写到工作区的 `<歌名>.txt`。
 3. **校验**：按第六节清单逐条核对，尤其是「音符数 = 歌词数」和八度点。
 4. **渲染**：调用脚本生成 PNG。
-5. **交付**：把 PNG 放入工作区，用 present_files 展示；再顺带在回复里贴一份纯文本数字简谱对照（手机上可以直接照抄）。
+5. **交付**：把 PNG 存到用户的工作目录并展示出来（WorkBuddy 用 present_files，其它 agent 用各自的文件预览方式）；再顺带在回复里贴一份纯文本数字简谱对照（手机上可以直接照抄）。
 6. 用户若指定「某句不对」「第二段漏了」，只改 DSL 对应行后重跑，不要重写整份谱。
 
 ## 三、DSL 格式
@@ -78,7 +78,7 @@ agent_created: true
 python <skill_dir>/scripts/render_score.py <输入.txt> -o <输出.png> --scale 2
 ```
 
-- 依赖：Pillow（Windows 上优先用 `C:\Users\<用户>\.workbuddy\binaries\python\versions\<ver>\python.exe`，该环境已装 PIL）。
+- 依赖：Pillow。优先用当前运行环境已有的解释器（WorkBuddy 的托管 Python 已装 Pillow），没有就 `pip install pillow`。脚本本身不依赖任何 agent 能力，可以单独在命令行跑。
 - `--scale` 默认 2，输出约 2300px 宽，手机看很清楚；要更小文件用 1，要更清晰用 3。
 - `--title 晴天` 可覆盖曲名。
 - 字体自动在 Windows/macOS/Linux 的常见中文字体里找（宋体做字母和歌词、雅黑做标题），找不到会降级为默认字体，不要因此报错中断。
