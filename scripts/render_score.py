@@ -61,7 +61,10 @@ C_TEXT = "#111111"
 C_LEGEND_BORDER = "#9A9A9A"
 C_DIVIDER = "#DCDCDC"
 
-TOKEN_RE = re.compile(r"^([#b]?)(\^+|_{1,2})?([0-7])([#b]?)([-.·]?)$")
+# 八度记号 ^ / _ 写在数字前面或后面都认（简谱里点是画在数字上/下方的，
+# 线性化时两种写法都常见）；# / b 半音同样前后都认。
+#   分组：acc前  oct前  数字  acc后  oct后  时长
+TOKEN_RE = re.compile(r"^([#b]?)(\^+|_+)?([0-7])([#b]?)(\^+|_+)?([-.·]?)$")
 
 FONT_SERIF_CANDIDATES = [
     # Windows
@@ -183,7 +186,7 @@ def parse(path):
             if not m:
                 notes.append(f"第 {lineno} 行：跳过了看不懂的记号 “{t}”")
                 continue
-            acc_pre, oct_mark, deg, acc_post, dur = m.groups()
+            acc_pre, oct_pre, deg, acc_post, oct_post, dur = m.groups()
             acc = acc_pre or acc_post
             # 时长符号归一化：· / . 都是半长按，- 是长按
             if dur in ("·", ".", "。"):
@@ -191,8 +194,9 @@ def parse(path):
             elif dur:
                 dur = "-"
             octave = 0
-            if oct_mark:
-                octave = len(oct_mark) if oct_mark[0] == "^" else -len(oct_mark)
+            for mark in (oct_pre, oct_post):
+                if mark:
+                    octave += len(mark) if mark[0] == "^" else -len(mark)
             if octave > 2 or octave < -1:
                 notes.append(f"第 {lineno} 行：{t} 超出乐器音域，已就近处理")
                 octave = max(-1, min(2, octave))
