@@ -225,28 +225,57 @@ def parse(path):
 
 # ---------------------------------------------------------------- 排版与绘制
 def layout_rows(phrases, box_w, box_gap, group_gap, max_width):
-    """把乐句按最大宽度折行，返回 [[Item, ...], ...]。"""
-    rows = []
-    for items in phrases:
-        cur, cur_w = [], 0
-        for it in items:
-            if it.kind == "gap":
-                if cur:
-                    cur.append(it)
-                    cur_w += group_gap
-                continue
-            step = box_w + box_gap
-            if cur and cur_w + box_w > max_width:
-                while cur and cur[-1].kind == "gap":
-                    cur.pop()
-                rows.append(cur)
-                cur, cur_w = [], 0
-            cur.append(it)
-            cur_w += step
+    """把乐句连续排布、按行折。
+
+    - 短句拼到同一行，不让每个乐句独占一行（旧版一乐句一行，长谱被拉成 7000px 长条）
+    - 一行放不下的乐句**整句挪到下一行**，不从中间切断
+    - 只有单句比一行还宽时，才在句内折行
+    - 乐句之间留两倍句内换气的间隔，看得出一句话结束了
+    返回 [行, ...]，每行是 [Item, ...]。
+    """
+    rows, cur, cur_w = [], [], 0
+
+    def flush():
+        nonlocal cur, cur_w
         while cur and cur[-1].kind == "gap":
             cur.pop()
         if cur:
             rows.append(cur)
+        cur, cur_w = [], 0
+
+    for items in phrases:
+        w = row_width(items, box_w, box_gap, group_gap)
+
+        if w > max_width:
+            # 单句比一行还宽：先收掉当前行，再把这句在行内折行
+            flush()
+            for it in items:
+                if it.kind == "gap":
+                    if cur:
+                        cur.append(it)
+                        cur_w += group_gap
+                    continue
+                step = box_w + box_gap
+                if cur and cur_w + box_w > max_width:
+                    while cur and cur[-1].kind == "gap":
+                        cur.pop()
+                    rows.append(cur)
+                    cur, cur_w = [], 0
+                cur.append(it)
+                cur_w += step
+            flush()
+            continue
+
+        if cur and cur_w + 2 * group_gap + w > max_width:
+            flush()                      # 放不下，整句挪到下一行
+        if cur:
+            cur.append(Item("gap"))
+            cur.append(Item("gap"))
+            cur_w += 2 * group_gap
+        cur.extend(items)
+        cur_w += w
+
+    flush()
     return rows
 
 
@@ -293,7 +322,7 @@ def render(title, phrases, out_path, scale=2, font_serif=None, font_sans=None):
     BOX = 46 * S
     BOX_GAP = 6 * S
     GROUP_GAP = 34 * S
-    LINE_W = 900 * S
+    LINE_W = 1150 * S
     MARGIN = 56 * S
     LEGEND_W = 205 * S
     LEGEND_GAP = 56 * S
@@ -415,6 +444,7 @@ def render(title, phrases, out_path, scale=2, font_serif=None, font_sans=None):
 
     img.save(out_path, "PNG")
     return out_path, img.size, warn
+
 
 
 # ---------------------------------------------------------------- HTML 输出（零依赖）
