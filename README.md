@@ -1,5 +1,8 @@
 # 三角洲口琴谱生成器
 
+> 英文名 / 仓库名：`delta-harmonica-tablature-generation-skill`
+> 仓库地址：https://github.com/SUPER-NIUs/Delta-harmonica-tablature-generation-skill
+
 把歌曲简谱转成《三角洲行动》「守夜人口琴」的键盘琴谱，并渲染成图片或网页。
 
 输入一张简谱（截图 / 文本都行），输出一份琴谱：键盘字母装在方框里、歌词逐字对齐在方框下方，
@@ -34,17 +37,18 @@
 
 ## 安装
 
-**方式一：当 skill 用** —— 把整个目录放进你的 agent 的 skills 目录（各家路径不同）：
+**方式一：当 skill 用** —— 把整个目录放进你的 agent 的 skills 目录（各家路径不同）。
+目录名要和 `SKILL.md` 里的 `name:` 一致，否则不会被识别：
 
 ```bash
 # WorkBuddy
-xcopy /E /I delta-harmonica-score "%USERPROFILE%\.workbuddy\skills\delta-harmonica-score"
+xcopy /E /I delta-harmonica-tablature-generation-skill "%USERPROFILE%\.workbuddy\skills\delta-harmonica-tablature-generation-skill"
 
 # Claude Code
-cp -r delta-harmonica-score ~/.claude/skills/
+cp -r delta-harmonica-tablature-generation-skill ~/.claude/skills/
 
 # 豆包：在「技能·连接器·伙伴」里点 + →「上传技能」，选整个目录打包的 zip
-#       导入后会落在 workspace/.user_skills/delta-harmonica-score/
+#       导入后会落在 workspace/.user_skills/delta-harmonica-tablature-generation-skill/
 
 # Cursor / 其它支持 SKILL.md 的工具：放进它约定的 skills 目录即可
 ```
@@ -115,7 +119,8 @@ python scripts/render_score.py 歌曲.txt -o 歌曲-口琴谱.html --scale 2
 
 ## 乐谱文件格式
 
-一个乐句一行，音符和歌词用 `|` 分开，歌词与音符 **严格 1:1**，没有歌词的音符写 `-`：
+一个乐句一行，音符和歌词用 `|` 分开。歌词和音符**按位置左对齐，数量不必相等** ——
+多出的歌词会被忽略，缺歌词的音符留空：
 
 ```
 # 歌名
@@ -127,19 +132,34 @@ python scripts/render_score.py 歌曲.txt -o 歌曲-口琴谱.html --scale 2
 1 6 6 / 6 5 5 5 4 3 2 3 4 3- | 但 偏 偏 雨 渐 渐 大 到 我 看 你 不 见
 ```
 
-长乐句会自动折行。音符数与歌词数对不上时，脚本仍会出图，但会在 stderr 明确报出错在哪一行 ——
-请先按提示修好 DSL 再交付。
+长乐句会自动折行。纯器乐或歌词对不齐时，**可以整段省略歌词**、只写音符。
+
+## 给 AI 用时：它是故意「不较真」的
+
+这个 skill 里写死了几条**反内耗预算**，是踩坑之后加的：
+
+- **读谱只读一遍** —— 不许分区放大重读、重复 OCR、"验证识别结果"。
+- **不许追查版本** —— 网上同一首歌常有 G 调/D 调多个来源，音符必然对不上。
+  选一个用，交付时提一句就行；不许去考证"哪个才是原版调"。
+- **核对最多一轮** —— 宁可交 95% 准的谱让用户指错，也不无限核对。
+- **没给谱时只做一段** —— 默认副歌（判断不出就取开头），8–12 句，搜索不超过 2 次。
+  要别的段落用户会说。
+
+配套地，渲染器把「音符数 ≠ 歌词数」「记号看不懂」「超音域」都只当**提示**，
+打印在 stdout 并标明"无需处理"，**stderr 保持为空** —— 免得 agent 把提示当成报错、
+回头反复修谱。对齐规则也换成了**以歌词定槽位**（一个汉字配一个音），
+而不是照着谱面把每个音符都抄下来：弹唱谱天然带装饰音，音符数多于歌词数是常态。
 
 ## 目录结构
 
 ```
-delta-harmonica-score/
-├── SKILL.md                    # skill 定义：触发条件、映射规则、工作流、交付自检清单
+delta-harmonica-tablature-generation-skill/
+├── SKILL.md                    # skill 定义：反内耗预算、映射规则、工作流、交付清单
 ├── scripts/
 │   └── render_score.py         # 渲染器（PNG 用 Pillow，HTML 零依赖，无网络依赖）
 ├── references/
 │   ├── mapping.md              # 全量键位／音域表，含超出音域怎么降级
-│   └── jianpu.md               # 读简谱时最容易漏的记号：八度点、延音线、反复号、一字多音
+│   └── jianpu.md               # 读谱速查：八度点、时长线、调号、一字多音怎么处理
 └── examples/
     ├── 晴天.txt                # 可跑的样例谱源
     ├── demo-晴天.png           # 样例输出（图片版）

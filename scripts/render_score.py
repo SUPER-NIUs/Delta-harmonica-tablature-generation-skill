@@ -3,11 +3,15 @@
 """
 简谱 -> 《三角洲行动》守夜人口琴谱 渲染器
 
-输入：一个纯文本乐谱文件（DSL，格式见 skill 的 references/format.md）
+输入：一个纯文本乐谱文件（DSL，格式见 SKILL.md 第四节）
 输出：PNG 图片（需要 Pillow + 一个中文字体）
       或 HTML（零依赖，字体交给浏览器，云环境/无字体时用它）
 
       低音（降调）绿底、高音（升调）红底、半音黄底，长按/半长按在框内标出。
+
+行为约定（给调用它的 agent 看）：
+    音符数与歌词数不一致、记号看不懂、超出音域 —— 这些一律只是**提示**，
+    照常出图，提示打印在 stdout 并标注"无需处理"。不要去"修"它们。
 
 用法：
     python render_score.py song.txt -o out.png            # PNG，需要 Pillow
@@ -138,13 +142,17 @@ class Item:
 
 
 def parse(path):
-    """解析 DSL，返回 (title, [ [Item, ...], ... ])。每个内层列表是一个乐句。"""
+    """解析 DSL，返回 (title, phrases, notes)。
+
+    notes 是给人看的**提示**，不是错误：脚本照常出图。
+    音符数与歌词数不一致属于正常情况（弹唱谱常带装饰音/伴奏音），一律只提示、不拦。
+    """
     with open(path, "r", encoding="utf-8") as fh:
         raw = fh.read()
 
     title = ""
     phrases = []
-    errors = []
+    notes = []
 
     for lineno, line in enumerate(raw.splitlines(), 1):
         s = line.strip()
@@ -173,7 +181,7 @@ def parse(path):
                 continue
             m = TOKEN_RE.match(t)
             if not m:
-                errors.append(f"第 {lineno} 行：无法识别的音符记号 “{t}”")
+                notes.append(f"第 {lineno} 行：跳过了看不懂的记号 “{t}”")
                 continue
             acc_pre, oct_mark, deg, acc_post, dur = m.groups()
             acc = acc_pre or acc_post
@@ -186,7 +194,7 @@ def parse(path):
             if oct_mark:
                 octave = len(oct_mark) if oct_mark[0] == "^" else -len(oct_mark)
             if octave > 2 or octave < -1:
-                errors.append(f"第 {lineno} 行：{t} 超出乐器音域，已按边界处理")
+                notes.append(f"第 {lineno} 行：{t} 超出乐器音域，已就近处理")
                 octave = max(-1, min(2, octave))
             items.append(
                 Item("note", key=NOTE_TO_KEY[deg], octave=octave,
@@ -196,21 +204,19 @@ def parse(path):
         slots = [it for it in items if it.kind != "gap"]
 
         if lyric_toks:
-            if len(lyric_toks) != len(slots):
-                errors.append(
-                    f"第 {lineno} 行：音符 {len(slots)} 个，歌词 {len(lyric_toks)} 个，数量不一致。"
-                    f"请用 - 占位补齐。"
-                )
+            extra = len(lyric_toks) - len(slots)
+            if extra > 0:
+                notes.append(f"第 {lineno} 行：歌词比音符多 {extra} 个，多出的已忽略"
+                             f"（弹唱谱常见，属正常）")
+            elif extra < 0:
+                notes.append(f"第 {lineno} 行：有 {-extra} 个音符没配歌词，已留空（属正常）")
             for it, ly in zip(slots, lyric_toks):
                 it.lyric = "" if ly == "-" else ly
 
         if items:
             phrases.append(items)
 
-    if errors:
-        sys.stderr.write("\n".join(errors) + "\n")
-
-    return title, phrases
+    return title, phrases, notes
 
 
 # ---------------------------------------------------------------- 排版与绘制
@@ -595,10 +601,17 @@ def main():
     ap.add_argument("--font-sans", default=None, help="[PNG] 指定无衬线中文字体路径")
     args = ap.parse_args()
 
-    title, phrases = parse(args.input)
+    title, phrases, notes = parse(args.input)
     if args.title:
         title = args.title
     scale = max(1, args.scale)
+
+    # 提示走 stdout 并写明"无需处理"：走 stderr 会被 agent 当成报错，
+    # 进而触发"回头核对、反复修谱"的死循环。
+    if notes:
+        print(f"提示（不影响出图，无需处理）：共 {len(notes)} 条")
+        for n in notes:
+            print("  " + n)
 
     if args.output.lower().endswith((".html", ".htm")):
         path = render_html(title, phrases, args.output, scale=scale)
